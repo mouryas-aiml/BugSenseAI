@@ -6,7 +6,7 @@
 
 import { HealthStatus, TriageOutput, BatchTriageResponse, AnalyticsData, SimilarBugMatch, IntelligenceStatus, IssueAnalytics, IssueCluster, IssueRecord, IssueResolution } from '../types';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
@@ -35,7 +35,8 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   } catch (err: unknown) {
     if (err instanceof Error) {
       if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-        throw new Error(`Cannot connect to FastAPI backend at ${API_BASE}. Ensure backend is running with: python -m uvicorn backend.main:app --port 8000`);
+        const target = API_BASE === '/api' ? 'the deployed FastAPI API at /api' : API_BASE;
+        throw new Error(`Cannot connect to ${target}. Configure VITE_API_BASE_URL for the deployed backend or ensure the /api reverse proxy is active.`);
       }
       throw err;
     }
