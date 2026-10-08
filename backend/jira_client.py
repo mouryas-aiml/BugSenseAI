@@ -18,6 +18,18 @@ SEVERITY_TO_PRIORITY = {
 JIRA_SIMILARITY_THRESHOLD = 0.72
 
 
+def _get_jira_config() -> Optional[dict]:
+    """Return Jira config dict or None if credentials are not configured."""
+    base_url = os.getenv("JIRA_BASE_URL", "").strip().rstrip("/")
+    email = os.getenv("JIRA_EMAIL", "").strip()
+    api_token = os.getenv("JIRA_API_TOKEN", "").strip()
+    project_key = os.getenv("JIRA_PROJECT_KEY", "").strip()
+
+    if not all([base_url, email, api_token, project_key]):
+        return None  # Jira not configured — optional integration
+    return {"base_url": base_url, "email": email, "api_token": api_token, "project_key": project_key}
+
+
 def find_similar_in_jira(triage: dict) -> Optional[dict]:
     """Semantic duplicate search against open Jira bugs.
 
@@ -27,13 +39,18 @@ def find_similar_in_jira(triage: dict) -> Optional[dict]:
     local vector store, including paraphrased or differently-worded reports.
 
     Returns {"key": ..., "url": ..., "title": ..., "similarity": ...} or None.
+    Returns None if Jira credentials are not configured.
     """
     from .vector_store import embed_text, cosine_similarity, _bug_to_text
 
-    base_url = os.environ["JIRA_BASE_URL"].rstrip("/")
-    email = os.environ["JIRA_EMAIL"]
-    api_token = os.environ["JIRA_API_TOKEN"]
-    project_key = os.environ["JIRA_PROJECT_KEY"]
+    config = _get_jira_config()
+    if config is None:
+        return None  # Jira not configured
+
+    base_url = config["base_url"]
+    email = config["email"]
+    api_token = config["api_token"]
+    project_key = config["project_key"]
 
     auth = HTTPBasicAuth(email, api_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -86,11 +103,20 @@ def find_similar_in_jira(triage: dict) -> Optional[dict]:
 
 
 def create_jira_ticket(triage: dict) -> dict:
-    """Create a Jira issue from a triage result. Returns the created issue key and URL."""
-    base_url = os.environ["JIRA_BASE_URL"].rstrip("/")
-    email = os.environ["JIRA_EMAIL"]
-    api_token = os.environ["JIRA_API_TOKEN"]
-    project_key = os.environ["JIRA_PROJECT_KEY"]
+    """Create a Jira issue from a triage result. Returns the created issue key and URL.
+
+    Raises ValueError if Jira credentials are not configured.
+    """
+    config = _get_jira_config()
+    if config is None:
+        raise ValueError(
+            "Jira is not configured. Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, "
+            "and JIRA_PROJECT_KEY in your .env file."
+        )
+    base_url = config["base_url"]
+    email = config["email"]
+    api_token = config["api_token"]
+    project_key = config["project_key"]
 
     auth = HTTPBasicAuth(email, api_token)
     headers = {"Accept": "application/json", "Content-Type": "application/json"}

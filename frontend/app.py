@@ -1,118 +1,77 @@
+"""
+BugSenseAI — Enterprise AI Bug Intelligence & Triage Platform
+Master Application Shell & Navigation Router
+"""
+
 import streamlit as st
-import requests
-import json
-from pathlib import Path
 import os
+from pathlib import Path
+from frontend.styles import apply_theme
+from frontend.api_client import check_backend_status
 
-BACKEND_URL = "http://localhost:8000"
-
-st.set_page_config(page_title="Bug Triage AI", layout="wide")
-
-st.title("🤖 AI Bug Triage MVP")
-st.markdown("---")
-
-# Sidebar for config
-st.sidebar.header("Config")
-sample_dir = Path(__file__).parent.parent / "sample_data"
-samples = list(sample_dir.glob("*.txt")) if sample_dir.exists() else []
-
-selected_sample = st.sidebar.selectbox(
-    "Load Sample",
-    ["Custom"] + [f.stem for f in samples]
+# Page Configuration
+st.set_page_config(
+    page_title="BugSenseAI — Enterprise AI Bug Intelligence",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# Main input
-col1, col2 = st.columns([3, 1])
+# Apply global dark enterprise CSS theme
+apply_theme()
 
-with col1:
-    if selected_sample != "Custom" and samples:
-        sample_path = sample_dir / f"{selected_sample}.txt"
-        default_text = sample_path.read_text()
-    else:
-        default_text = ""
+# Paths to views relative to frontend/ directory
+VIEWS_DIR = Path(__file__).parent / "views"
 
-    raw_bug = st.text_area(
-        "Raw Bug Report",
-        value=default_text,
-        height=200,
-        placeholder="Paste Slack message, email, or note here..."
-    )
+dashboard_page = st.Page(str(VIEWS_DIR / "dashboard.py"), title="Executive Dashboard", icon=":material/dashboard:", default=True)
+analyze_page = st.Page(str(VIEWS_DIR / "analyze.py"), title="Analyze Bug", icon=":material/psychology:")
+batch_page = st.Page(str(VIEWS_DIR / "batch.py"), title="Batch Analysis", icon=":material/batch_prediction:")
+duplicates_page = st.Page(str(VIEWS_DIR / "duplicates.py"), title="Duplicate Detection", icon=":material/difference:")
+history_page = st.Page(str(VIEWS_DIR / "history.py"), title="Bug History Dossiers", icon=":material/history:")
+analytics_page = st.Page(str(VIEWS_DIR / "analytics.py"), title="Engineering Analytics", icon=":material/analytics:")
+health_page = st.Page(str(VIEWS_DIR / "health.py"), title="System Health", icon=":material/health_and_safety:")
+settings_page = st.Page(str(VIEWS_DIR / "settings.py"), title="Platform Settings", icon=":material/settings:")
 
-with col2:
-    st.info("**Confidence Guide**")
-    st.markdown("- 🟢 High: Safe for automation")
-    st.markdown("- 🟡 Medium: Quick review recommended")
-    st.markdown("- 🔴 Low: **Human review required**")
+# Grouped enterprise navigation
+pg = st.navigation({
+    "Core Triage": [dashboard_page, analyze_page, batch_page, duplicates_page],
+    "Analytics & Audit": [history_page, analytics_page],
+    "Platform Governance": [health_page, settings_page],
+})
 
-# Triage button
-if st.button("🚀 Triage Bug", type="primary"):
-    if not raw_bug.strip():
-        st.error("Please enter a bug report.")
-    else:
-        try:
-            response = requests.post(
-                f"{BACKEND_URL}/triage",
-                json={"bug": raw_bug},
-                timeout=120
-            )
-            if response.status_code == 200:
-                triage = response.json()
-                # Display
-                col_a, col_b, col_c = st.columns(3)
-                
-                with col_a:
-                    st.metric("Severity", triage["severity"])
-                    conf_emoji = {"High": "🟢", "Medium": "🟡", "Low": "🔴"}.get(triage["confidence"], "⚪")
-                    st.metric("Confidence", f"{conf_emoji} {triage['confidence']}")
-                
-                with col_b:
-                    st.subheader("Assignee")
-                    st.write(triage["suggested_assignee_team"])
-                
-                with col_c:
-                    st.subheader("Labels")
-                    labels = ", ".join(triage["suggested_labels"])
-                    st.write(labels or "None")
-                
-                # Full output
-                with st.expander("📋 Structured Ticket", expanded=True):
-                    for key, value in triage.items():
-                        if isinstance(value, list):
-                            st.write(f"**{key.replace('_', ' ').title()}:**")
-                            for item in value:
-                                st.write(f"  - {item}")
-                        else:
-                            st.write(f"**{key.replace('_', ' ').title()}:** {value}")
-                
-                # Raw JSON download
-                json_str = json.dumps(triage, indent=2)
-                st.download_button(
-                    "💾 Download JSON",
-                    json_str,
-                    file_name="triaged_bug.json",
-                    mime="application/json"
-                )
-                
-                # Human-in-loop
-                st.markdown("---")
-                st.header("👥 Human-in-the-loop Decision Points")
-                st.markdown("""
-                **AI automates**:
-                - Standardizes intake & formatting
-                - Applies severity rubric consistently
-                - Flags uncertainty via confidence
-                
-                **Always review**:
-                - Low confidence (needs human context)
-                - P1 severity (high stakes)
-                - Generated repro steps (validate)
-                
-                **Final call**: Prioritization + assignee still benefits from human judgment.
-                """)
-            else:
-                st.error(f"Backend error: {response.text}")
-        except requests.exceptions.RequestException as e:
-            st.error(f"Backend not running? Start with: `uvicorn backend.main:app --reload --port 8000`\n\nError: {e}")
+# Sidebar Brand Header & Real-Time Status Indicators
+with st.sidebar:
+    st.markdown("""
+<div style="padding: 12px 0 16px 0; border-bottom: 1px solid #1f2937; margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.6rem;">🛡️</span>
+        <div>
+            <div style="font-weight: 800; font-size: 1.15rem; color: #ffffff; letter-spacing: -0.02em;">BugSense<span style="color: #3b82f6;">AI</span></div>
+            <div style="font-size: 0.72rem; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em;">AI Bug Intelligence Platform</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# Footer
-st.markdown("---")
+    # Real-time health status widget
+    try:
+        health = check_backend_status()
+        is_healthy = health.get("status") == "healthy"
+        status_color = "#10b981" if is_healthy else "#f59e0b"
+        status_text = "Operational" if is_healthy else "Degraded Mode"
+        llm_model = health.get("llm_model", "gemini-flash-lite-latest")
+
+        st.markdown(f"""
+<div style="background: rgba(17, 24, 39, 0.7); border: 1px solid #1f2937; border-radius: 8px; padding: 10px 12px; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 0.75rem; color: #9ca3af;">STATUS</span>
+        <span style="font-size: 0.75rem; font-weight: 600; color: {status_color};">● {status_text}</span>
+    </div>
+    <div style="font-size: 0.75rem; color: #6b7280;">Model: <span style="color: #cbd5e1;">{llm_model}</span></div>
+</div>
+""", unsafe_allow_html=True)
+    except Exception:
+        pass
+
+# Execute the routed page
+pg.run()

@@ -1,284 +1,164 @@
-# Bug Triage AI
+# BugSenseAI — Enterprise AI Bug Intelligence & Triage Platform
 
-Converts unstructured bug reports and CI test failures into structured, actionable Jira tickets — automatically, with consistent severity scoring, team routing, and duplicate detection.
+An enterprise-grade software maintenance and automated defect triage platform aligned directly with the **TCS AI Problem Statement**. Transforms unstructured bug reports, logs, and stack traces into structured, actionable engineering intelligence with zero hallucination, strict PII privacy masking, semantic duplicate detection, and human-in-the-loop review.
 
-Built by a QA Automation Engineer to eliminate the manual triage bottleneck between "bug reported" and "engineer assigned."
-
-![Bug Triage AI demo](demo.gif)
+Powered by the **Google Gemini SDK** (`google-genai`), Sentence-Transformers vector similarity, and FastAPI + Streamlit.
 
 ---
 
-## What it does
+## 🎯 TCS Problem Alignment
 
-**Input**: A raw Slack message, a free-text bug report, or a JUnit XML file from CI.
-
-**Output**: A structured ticket with severity (P1–P4), component, reproduction steps, assignee team, suggested Jira labels, and a list of test suites to rerun.
-
-**Key behaviours**:
-- Low confidence → no auto-ticket, flagged for human review
-- P1 severity → always flagged `urgent-review`
-- Duplicate bug → dedup check fires before any ticket is created
-- QA correction via `/feedback` → injected into next triage prompt automatically
-
----
-
-## Architecture
-
-```
-Raw input (Slack / API / CI)
-        │
-        ▼
-  LLM (Ollama / OpenAI / Groq / Gemini)
-  temperature=0.1, structured JSON output enforced
-        │
-        ▼
-  Deterministic Rules Engine
-  ├── Team routing (keyword → Auth / Billing / Frontend / Backend / QA)
-  ├── Severity bumping ("all users" / "production down" → P1)
-  ├── Review flags (low confidence / P1 → human review label)
-  └── Test area suggestions (team → relevant test suites to rerun)
-        │
-        ▼
-  Two-layer Duplicate Detection
-  ├── Layer 1: Local vector store (sentence-transformers, cosine ≥ 0.68)
-  └── Layer 2: Jira semantic search (batch-embed open tickets, cosine ≥ 0.72)
-        │
-        ▼
-  Jira ticket created + embedding stored
-        │
-        ▼
-  Result posted to Slack thread / returned via API
-```
+| TCS Requirement | BugSenseAI Capability |
+|---|---|
+| **AI/GenAI Summarization** | Distills complex customer complaints and multi-page stack traces into concise 1–2 sentence executive summaries for maintenance engineers. |
+| **Key Information Extraction** | Extracts component, bug type, affected users, error codes, environment, and technical entities. |
+| **Actionable Bug Summaries** | Formats findings into engineer-ready dossiers with suggested assignee teams, Jira labels, and test coverage areas. |
+| **Reproduction-Step Extraction** | Extracts verified sequential steps or marks missing sequences with clear provenance tags. |
+| **Impact Identification** | Quantifies operational impact and blast radius (e.g., revenue risk, user percentage affected). |
+| **Severity Classification** | Standardized P1 (Critical) through P4 (Low) rubric with automated business impact elevation. |
+| **Data Privacy & Anonymization** | Pre-LLM client-side redaction of emails, IP addresses, credentials, and personal identifiers. |
+| **Strict Fact vs. Inference Separation** | Explicitly distinguishes stated report facts from AI hypotheses (`[HYPOTHESIS]`, `[INFERRED]`) and rule-based decisions. |
+| **Missing Information Flagging** | Flags incomplete reports with *"Information Missing — Human Input Required"*. |
+| **Duplicate Bug Detection** | Dense 384-dimensional semantic embeddings (`all-MiniLM-L6-v2`) with cosine similarity scoring, rationale explanations, and side-by-side diffing. |
+| **Batch Processing** | Ingests CSV, JSON, and TXT bug batches with real-time progress bars, filtering, and export. |
+| **Human-in-the-Loop Review** | Automated review triggers on P1 severity, low confidence, or low quality scores; interactive overrides. |
+| **Platform Analytics & Health** | Interactive Plotly dashboards tracking severity trends, component clusters, duplicate rates, pipeline latency, and live service probes. |
 
 ---
 
-## Project structure
+## 🔄 Core Product Flow
 
 ```
-bug-triage-ai/
-├── backend/
-│   ├── main.py           # FastAPI: POST /triage, POST /triage/ci, GET /health
-│   ├── triage.py         # Orchestration: prompt → LLM → parse → rules
-│   ├── llm_client.py     # Provider-agnostic LLM wrapper + JSON schema enforcement
-│   ├── models.py         # Pydantic schemas (BugInput, TriageOutput, CITriageRequest, ...)
-│   ├── rules.py          # Deterministic post-LLM rules (routing, severity, labels, test areas)
-│   ├── jira_client.py    # Jira REST API: semantic duplicate search + ticket creation
-│   ├── vector_store.py   # Local embedding store (sentence-transformers)
-│   ├── ci_parser.py      # JUnit XML parser + bug description builder
-│   ├── feedback_store.py # QA correction store + prompt injection
-│   └── prompt.txt        # LLM system prompt with severity rubric
-├── frontend/
-│   └── app.py            # Streamlit UI
-├── slack_bot.py          # Slack bot: #bugs listener + /triage + /feedback
-├── tests/                # 102 unit tests (pytest)
-│   ├── test_rules.py
-│   ├── test_dedup.py
-│   ├── test_triage.py
-│   ├── test_feedback.py
-│   └── test_ci_parser.py
-├── sample_data/          # Sample bug reports
-├── outputs/              # Saved triage JSONs + vector store + feedback log
-└── .github/workflows/
-    └── ci.yml            # GitHub Actions: install, validate .env.example, run tests
+Bug Report (Text / CSV / Logs)
+         │
+         ▼
+  Privacy / PII Anonymization (Client-side regex masking of emails, IPs, tokens)
+         │
+         ▼
+  Deterministic Quality Scoring (Completeness heuristic 0–100)
+         │
+         ▼
+  AI Understanding (Google Gemini via official google-genai SDK)
+         │
+         ▼
+  Structured Extraction & Validation (Typed Pydantic Schemas)
+  ├── Executive Summary & Title
+  ├── Severity (P1–P4) & Priority Rationale
+  ├── Operational Impact & Affected Users
+  ├── Sequential Reproduction Steps
+  ├── Expected vs. Actual Behavior
+  ├── Environment & Technical Entities
+  └── Root-Cause Hypothesis ([HYPOTHESIS])
+         │
+         ▼
+  Information Gap Analysis (Missing Info → "Human Input Required" flag)
+         │
+         ▼
+  Deterministic Rules Engine (Severity elevation, team routing, test areas)
+         │
+         ▼
+  Semantic Vector Duplicate Detection (Cosine similarity comparison)
+         │
+         ▼
+  Human-in-the-Loop Review & Jira Export
+         │
+         ▼
+  Persistent JSON Dossier & Real-Time Analytics
 ```
 
 ---
 
-## Setup
+## 🖥️ Enterprise UI/UX (9 Sections)
+
+BugSenseAI features a dark-themed, high-contrast enterprise interface built with modern Streamlit routing (`st.navigation`):
+
+1. **Executive Dashboard**: High-level KPIs (Total bugs, P1–P4, Human-review queue, Duplicates, Avg completeness, Avg confidence), severity and component charts, and live activity tables.
+2. **Analyze Bug**: Multi-line bug input with preset sample scenarios (P1 Checkout crash, P2 Timeout, Vague report, P4 UI glitch), optional metadata, and live processing status.
+3. **AI Analysis Result**: Comprehensive structured intelligence dossier separating report facts from AI hypotheses, PII masking summary, missing info banners, severity override controls, and 1-click JSON export.
+4. **Batch Analysis**: Bulk file ingestion (CSV, JSON, TXT), real-time progress tracking, sortable/filterable results table, and combined CSV/JSON export.
+5. **Duplicate & Similar Issues**: Vector similarity engine displaying ranked matches with percentage scores, duplicate rationales, and side-by-side comparative views.
+6. **Bug History Dossiers**: Full-text search and multi-facet filtering (Severity, Component, Confidence, Review Status) across all saved triage reports.
+7. **Engineering Analytics**: Statistical dashboards covering severity distribution, component concentration, duplicate filing rates, quality score spread, and AI pipeline latency.
+8. **System Health & Diagnostics**: Live health probes for FastAPI backend, Google Gemini API connectivity, sentence-transformer model cache, and administrator troubleshooting guides.
+9. **Platform Settings & Governance**: Model variant selection, timeout/temperature sliders, duplicate thresholds, privacy toggles, and strict zero-exposure secret masking.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites & Virtual Environment
+
+Python 3.10+ is required.
 
 ```bash
-git clone https://github.com/samyamdhamala/bug-triage-ai.git
-cd bug-triage-ai
-python -m venv venv && venv/Scripts/activate   # Windows
+git clone https://github.com/mouryas-aiml/BugSenseAI.git
+cd BugSenseAI
+
+# Activate virtual environment
+.\venv\Scripts\activate       # Windows
+source venv/bin/activate      # Linux / macOS
+
+# Install dependencies
 pip install -r requirements.txt
-cp .env.example .env
-# Fill in .env (see Configuration section)
 ```
 
-### Run the API + UI
+### 2. Environment Configuration
+
+Copy `.env.example` to `.env`:
 
 ```bash
-# Terminal 1
-uvicorn backend.main:app --reload --port 8000
+cp .env.example .env
+```
 
-# Terminal 2
+Set your Google Gemini API key:
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-flash-lite-latest
+LLM_TIMEOUT_SECONDS=60
+```
+> **Note:** The platform automatically falls back across reliable Gemini flash models (`gemini-flash-lite-latest`, `gemini-flash-latest`) to protect against temporary Google traffic spikes (503s).
+
+### 3. Launching the Application
+
+Start both the backend service and the frontend dashboard:
+
+```bash
+# Terminal 1 — FastAPI Backend (Port 8000)
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 — Enterprise Streamlit Dashboard (Port 8501)
 streamlit run frontend/app.py
 ```
 
-### Run the Slack bot
+Open your browser at `http://localhost:8501`.
 
-```bash
-python slack_bot.py
-```
+> **Resilient Architecture Note:** If the FastAPI backend service is not running on port 8000, the Streamlit frontend automatically switches to **Direct In-Process Engine Mode**, ensuring users are never blocked by connection errors.
 
 ---
 
-## Configuration
+## 🧪 Automated Test Suite
 
-```env
-# LLM provider — pick one
-LLM_PROVIDER=ollama        # options: openai, groq, gemini, ollama
-
-OPENAI_API_KEY=...
-GROQ_API_KEY=...
-GEMINI_API_KEY=...
-
-# Ollama (local, no key needed)
-OLLAMA_BASE_URL=http://localhost:11434/v1
-OLLAMA_MODEL=llama3.2
-
-# Slack
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_APP_TOKEN=xapp-...
-SLACK_BUGS_CHANNEL=bugs
-
-# Jira
-JIRA_BASE_URL=https://your-org.atlassian.net
-JIRA_EMAIL=you@example.com
-JIRA_API_TOKEN=...
-JIRA_PROJECT_KEY=BUG
-```
-
----
-
-## API endpoints
-
-### `POST /triage`
-Triage a single raw bug report.
-
-```bash
-curl -X POST http://localhost:8000/triage \
-  -H "Content-Type: application/json" \
-  -d '{"bug": "Login spinner never stops after entering credentials, started after deploy"}'
-```
-
-**Response** (abbreviated):
-```json
-{
-  "title": "Login hangs on spinner after credential entry",
-  "severity": "P1",
-  "component": "Authentication",
-  "suggested_assignee_team": "Auth Team",
-  "confidence": "High",
-  "suggested_labels": ["urgent-review"],
-  "related_test_areas": ["auth_login_flow", "session_management", "sso_flow"]
-}
-```
-
-### `POST /triage/ci`
-Ingest a JUnit XML report from CI and triage each test failure.
-
-```bash
-curl -X POST http://localhost:8000/triage/ci \
-  -H "Content-Type: application/json" \
-  -d '{
-    "junit_xml": "<testsuites>...</testsuites>",
-    "branch": "main",
-    "commit_sha": "abc123",
-    "run_url": "https://github.com/org/repo/actions/runs/999",
-    "create_tickets": false
-  }'
-```
-
-**Response**:
-```json
-{
-  "total_failures_found": 2,
-  "triaged_count": 2,
-  "branch": "main",
-  "results": [
-    {
-      "test_name": "test_login_flow",
-      "classname": "tests.test_auth",
-      "failure_type": "failure",
-      "triage": {
-        "severity": "P2",
-        "suggested_assignee_team": "Auth Team",
-        "related_test_areas": ["auth_login_flow", "session_management"]
-      }
-    }
-  ]
-}
-```
-
-**Wire into GitHub Actions:**
-```yaml
-- name: Triage test failures
-  if: failure()
-  run: |
-    curl -X POST http://your-server:8000/triage/ci \
-      -H "Content-Type: application/json" \
-      -d "{
-        \"junit_xml\": $(cat test-results.xml | python -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),
-        \"branch\": \"${{ github.ref_name }}\",
-        \"commit_sha\": \"${{ github.sha }}\",
-        \"run_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
-        \"create_tickets\": true
-      }"
-```
-
-Supports JUnit XML from pytest, JUnit, TestNG, Mocha, and any framework with `--junit-xml` output.
-
-### `GET /health`
-```json
-{"status": "healthy"}
-```
-
----
-
-## Slack commands
-
-| Command | Description |
-|---------|-------------|
-| Post any message in `#bugs` | Auto-triaged in thread |
-| `/triage <bug description>` | Triage from any channel |
-| `/feedback BUG-42 <correction>` | Save a QA correction for future triages |
-
-**Feedback loop**: corrections saved via `/feedback` are injected into the LLM prompt on the next triage, so the model learns from QA reviewer judgment without retraining.
-
----
-
-## Supported LLM providers
-
-| Provider | Model | JSON enforcement |
-|----------|-------|-----------------|
-| OpenAI | gpt-4o-mini | Strict schema (structured outputs) |
-| Groq | llama-3.3-70b-versatile | `json_object` mode |
-| Gemini | gemini-1.5-pro | `application/json` MIME |
-| Ollama | llama3.2 (configurable) | `json_object` mode |
-
-All providers are swappable with a single `.env` change.
-
----
-
-## Tests
+BugSenseAI includes 113 comprehensive unit tests covering all core modules:
 
 ```bash
 pytest tests/ -v
-# 102 tests covering: rules engine, dedup pipeline,
-# structured output parsing, feedback store, CI XML parser
 ```
 
-CI runs automatically on every push via GitHub Actions (`.github/workflows/ci.yml`).
+**Test Coverage Breakdown:**
+- `tests/test_triage.py`: JSON schema compliance, enum boundaries, Pydantic validation.
+- `tests/test_rules.py`: Deterministic routing rules, severity elevation, test area mapping.
+- `tests/test_dedup.py`: Vector cosine similarity, duplicate detection thresholds.
+- `tests/test_anonymizer.py`: PII regex redaction for emails, IPs, names, and tokens.
+- `tests/test_quality_scorer.py`: Report completeness scoring and missing item detection.
+- `tests/test_analytics.py`: Aggregate statistics, pagination, and history parsing.
+- `tests/test_ci_parser.py`: JUnit XML failure parsing and CI bug description synthesis.
+- `tests/test_feedback.py`: Human correction recording and dynamic prompt injection.
 
 ---
 
-## Failure modes and human oversight
+## 🛡️ Security & Privacy Guarantees
 
-| Situation | Behaviour |
-|-----------|-----------|
-| Vague report | Low confidence → no auto-ticket, flagged for human review |
-| P1 severity | Always flagged `urgent-review` regardless of confidence |
-| Generated repro steps | Prefixed `[generated]` — validate before filing |
-| Multi-bug report | Triages most severe, notes "contains multiple issues" |
-| Duplicate detected | Similarity score shown, no new ticket created |
-| LLM returns bad JSON | Clear error surfaced (structured outputs make this rare) |
-
----
-
-## Roadmap
-
-- Metrics dashboard: bugs triaged per day, severity distribution, routing accuracy
-- Confidence calibration: surface where LLM misroutes most often from feedback log
-- Bulk triage from CSV export
-- Postgres persistence (replace flat JSON output files)
+- **Zero Secret Exposure**: Production API keys are read strictly through environment variables. Keys are never printed in console logs, UI pages, or exported JSON dossiers.
+- **Client-Side Redaction**: Customer emails, IPv4/IPv6 addresses, authorization tokens, and personal names are scrubbed before payload transmission to AI providers.
+- **Strict Provenance**: Hypotheses are explicitly marked `[HYPOTHESIS]` to prevent false confidence during critical incident triage.

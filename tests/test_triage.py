@@ -74,11 +74,14 @@ class TestTriageJsonSchema:
     def test_all_required_fields_present(self):
         required = set(TRIAGE_JSON_SCHEMA["schema"]["required"])
         expected = {
-            "title", "severity", "component", "bug_type", "affected_users",
-            "reproduction_steps", "expected_behavior", "actual_behavior",
-            "suggested_labels", "priority_reasoning", "suggested_assignee_team", "confidence",
+            "title", "summary", "severity", "component", "bug_type", "affected_users",
+            "impact", "reproduction_steps", "expected_behavior", "actual_behavior",
+            "environment", "error_messages", "root_cause_hypothesis", "missing_information",
+            "extracted_entities", "suggested_labels", "priority_reasoning",
+            "suggested_assignee_team", "confidence",
         }
         assert required == expected
+
 
     def test_severity_enum_values(self):
         severity_schema = TRIAGE_JSON_SCHEMA["schema"]["properties"]["severity"]
