@@ -19,8 +19,9 @@ import os
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from .models import (
     BugInput, TriageOutput,
@@ -34,6 +35,7 @@ from .analytics import get_analytics, get_history
 from .llm_client import check_llm_connectivity, get_provider_and_model
 from .vector_store import _load_store
 from .feedback_store import _load as _load_feedback
+from . import issue_intelligence
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +276,105 @@ async def duplicates_query(payload: dict):
     top_k = payload.pop("top_k", 5) if isinstance(payload, dict) else 5
     matches = find_all_similar(payload, top_k=top_k)
     return {"matches": matches}
+
+
+# ── Dataset Issue Intelligence ────────────────────────────────────────────────
+
+def _prepare_issue_index() -> None:
+    try:
+        issue_intelligence.build_index()
+    except Exception:
+        logger.exception("Issue intelligence index build failed")
+
+
+def _issue_filters(query: str = "", category: str = "", state: str = "", priority: str = "", start_date: str = "", end_date: str = "") -> dict:
+    return {"query": query, "category": category, "state": state, "priority": priority, "start_date": start_date, "end_date": end_date}
+
+
+@app.get("/issue-intelligence/status")
+async def issue_intelligence_status():
+    return issue_intelligence.status()
+
+
+@app.post("/issue-intelligence/prepare", status_code=202)
+async def prepare_issue_intelligence(background_tasks: BackgroundTasks):
+    current = issue_intelligence.status()
+    if not current.get("ready") and not current.get("building"):
+        background_tasks.add_task(_prepare_issue_index)
+    return {**current, "message": "Index preparation started" if not current.get("ready") else "Index already ready"}
+
+
+@app.get("/issue-intelligence/analytics")
+async def issue_intelligence_analytics(
+    query: str = "", category: str = "", state: str = "", priority: str = "", start_date: str = "", end_date: str = "",
+):
+    try:
+        return issue_intelligence.get_analytics(_issue_filters(query, category, state, priority, start_date, end_date))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/issue-intelligence/clusters")
+async def issue_intelligence_clusters(
+    limit: int = Query(default=25, ge=1, le=100), offset: int = Query(default=0, ge=0),
+    query: str = "", category: str = "", state: str = "", priority: str = "", start_date: str = "", end_date: str = "",
+):
+    try:
+        return issue_intelligence.list_clusters(offset, limit, _issue_filters(query, category, state, priority, start_date, end_date))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/issue-intelligence/issues")
+async def issue_intelligence_issues(
+    limit: int = Query(default=25, ge=1, le=100), offset: int = Query(default=0, ge=0),
+    query: str = "", category: str = "", state: str = "", priority: str = "", start_date: str = "", end_date: str = "",
+):
+    try:
+        filters = _issue_filters(query, category, state, priority, start_date, end_date)
+        records = issue_intelligence._filtered_records(filters)
+        return {"total": len(records), "offset": offset, "limit": limit, "items": records[offset:offset + limit]}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/issue-intelligence/issues/{issue_id}")
+async def issue_intelligence_issue(issue_id: str):
+    try:
+        return issue_intelligence.get_issue(issue_id)
+    except (FileNotFoundError, KeyError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/issue-intelligence/resolve")
+async def issue_intelligence_resolve(payload: dict):
+    query = str(payload.get("query", "")).strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="A user issue query is required")
+    try:
+        return issue_intelligence.resolve_issue(query, int(payload.get("top_k", 5)))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.post("/issue-intelligence/feedback")
+async def issue_intelligence_feedback(payload: dict):
+    issue_id = str(payload.get("issue_id", "")).strip()
+    if not issue_id:
+        raise HTTPException(status_code=400, detail="issue_id is required")
+    return issue_intelligence.record_support_feedback(issue_id, bool(payload.get("resolved")), str(payload.get("comment", "")))
+
+
+@app.get("/issue-intelligence/export")
+async def issue_intelligence_export(
+    kind: str = Query(default="issues", pattern="^(issues|clusters|kpis)$"),
+    query: str = "", category: str = "", state: str = "", priority: str = "", start_date: str = "", end_date: str = "",
+):
+    try:
+        content = issue_intelligence.export_csv(kind, _issue_filters(query, category, state, priority, start_date, end_date))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return Response(content=content, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="bugsense_{kind}.csv"'})
 
 
 

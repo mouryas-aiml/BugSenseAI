@@ -108,3 +108,87 @@ export interface StoredBugItem {
   text: string;
   jira_url?: string;
 }
+
+export interface IssueRecord {
+  issue_id: string;
+  title: string;
+  summary: string;
+  body: string;
+  comments: string[];
+  labels: string[];
+  state: string;
+  category: string;
+  component: string;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+  closed_at: string;
+  source_url: string;
+  discussion_count: number;
+  cluster_id: string;
+  cluster_name: string;
+  resolution_available: boolean;
+  resolution_summary: string;
+  resolution_steps: string[];
+  confidence: 'High' | 'Medium' | 'Low';
+  similar_reports?: Array<{ issue_id: string; title: string; similarity: number }>;
+  evidence_sources?: string[];
+  escalation_recommendation?: string;
+}
+
+export interface IssueCluster {
+  cluster_id: string;
+  cluster_name: string;
+  report_count: number;
+  percentage: number;
+  representative_issue_id: string;
+  representative_title: string;
+  category: string;
+  common_symptoms: string[];
+  related_issue_ids: string[];
+  resolution_available: boolean;
+  resolution_summary: string;
+}
+
+export interface IssueAnalytics {
+  total_reports: number;
+  unique_issue_clusters: number;
+  duplicate_similar_reports: number;
+  top_issue: string | null;
+  top_issue_percentage: number;
+  potentially_auto_resolvable: number;
+  human_escalations: number;
+  ai_resolution_rate: number;
+  average_confidence: number;
+  average_completeness: number;
+  open_count: number;
+  closed_count: number;
+  high_priority_count: number;
+  resolution_count: number;
+  category_distribution: Record<string, number>;
+  component_distribution: Record<string, number>;
+  most_discussed: Array<{ issue_id: string; title: string; comments: number }>;
+  clusters_with_resolutions: number;
+  trend_by_month: Record<string, number>;
+  dataset_name: string;
+}
+
+export interface IssueResolution {
+  query: string;
+  answer: string;
+  steps: string[];
+  confidence: 'High' | 'Medium' | 'Low';
+  resolution_available: boolean;
+  escalation_recommended: boolean;
+  matches: Array<{ issue_id: string; title: string; similarity: number; source_url: string }>;
+  evidence: Array<{ issue_id: string; title: string; resolution_summary: string; steps: string[]; source_url: string }>;
+}
+
+export interface IntelligenceStatus {
+  ready: boolean;
+  building: boolean;
+  dataset_name: string;
+  dataset_split?: string;
+  record_count: number;
+  error?: string;
+}

@@ -4,7 +4,7 @@
  * and comprehensive error normalization.
  */
 
-import { HealthStatus, TriageOutput, BatchTriageResponse, AnalyticsData, SimilarBugMatch } from '../types';
+import { HealthStatus, TriageOutput, BatchTriageResponse, AnalyticsData, SimilarBugMatch, IntelligenceStatus, IssueAnalytics, IssueCluster, IssueRecord, IssueResolution } from '../types';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -112,5 +112,41 @@ export const apiService = {
     return request<{ added: number; total: number }>('/duplicates/sync', {
       method: 'POST',
     });
+  },
+
+  async getIntelligenceStatus(): Promise<IntelligenceStatus> {
+    return request<IntelligenceStatus>('/issue-intelligence/status');
+  },
+
+  async prepareIntelligence(): Promise<IntelligenceStatus & { message: string }> {
+    return request<IntelligenceStatus & { message: string }>('/issue-intelligence/prepare', { method: 'POST' });
+  },
+
+  async getIssueAnalytics(filters: Record<string, string> = {}): Promise<IssueAnalytics> {
+    return request<IssueAnalytics>(`/issue-intelligence/analytics?${new URLSearchParams(filters)}`);
+  },
+
+  async getIssueClusters(filters: Record<string, string> = {}, limit = 25, offset = 0): Promise<{ total: number; items: IssueCluster[] }> {
+    return request<{ total: number; items: IssueCluster[] }>(`/issue-intelligence/clusters?${new URLSearchParams({ ...filters, limit: String(limit), offset: String(offset) })}`);
+  },
+
+  async getIssues(filters: Record<string, string> = {}, limit = 25, offset = 0): Promise<{ total: number; items: IssueRecord[] }> {
+    return request<{ total: number; items: IssueRecord[] }>(`/issue-intelligence/issues?${new URLSearchParams({ ...filters, limit: String(limit), offset: String(offset) })}`);
+  },
+
+  async getIssue(issueId: string): Promise<IssueRecord> {
+    return request<IssueRecord>(`/issue-intelligence/issues/${encodeURIComponent(issueId)}`);
+  },
+
+  async resolveIssue(query: string): Promise<IssueResolution> {
+    return request<IssueResolution>('/issue-intelligence/resolve', { method: 'POST', body: JSON.stringify({ query }) });
+  },
+
+  async sendSupportFeedback(issueId: string, resolved: boolean, comment = ''): Promise<void> {
+    await request('/issue-intelligence/feedback', { method: 'POST', body: JSON.stringify({ issue_id: issueId, resolved, comment }) });
+  },
+
+  intelligenceExportUrl(kind: 'issues' | 'clusters' | 'kpis', filters: Record<string, string> = {}): string {
+    return `${API_BASE}/issue-intelligence/export?${new URLSearchParams({ ...filters, kind })}`;
   },
 };

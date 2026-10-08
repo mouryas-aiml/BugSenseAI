@@ -9,6 +9,7 @@ import { HistoryView } from './components/HistoryView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { HealthView } from './components/HealthView';
 import { SettingsView } from './components/SettingsView';
+import { IssueIntelligenceView } from './components/IssueIntelligenceView';
 import { apiService } from './services/api';
 import { HealthStatus, AnalyticsData } from './types';
 
@@ -91,6 +92,7 @@ export const App: React.FC = () => {
             />
           )}
           {activeTab === 'settings' && <SettingsView />}
+          {activeTab === 'intelligence' && <IssueIntelligenceView />}
         </main>
       </div>
     </div>

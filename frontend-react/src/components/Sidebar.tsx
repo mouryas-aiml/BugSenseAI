@@ -8,7 +8,8 @@ import {
   BarChart3, 
   Activity, 
   Settings, 
-  ShieldCheck 
+  ShieldCheck,
+  BrainCircuit
 } from 'lucide-react';
 import { HealthStatus } from '../types';
 
@@ -65,6 +66,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, healt
         </div>
 
         <div className="nav-section-title">Analytics & Audit</div>
+        <div 
+          className={`nav-item ${activeTab === 'intelligence' ? 'active' : ''}`}
+          onClick={() => setActiveTab('intelligence')}
+        >
+          <BrainCircuit size={18} />
+          <span>Issue Intelligence</span>
+        </div>
         <div 
           className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}

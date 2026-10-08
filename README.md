@@ -165,3 +165,90 @@ pytest tests/ -v
 - **Zero Secret Exposure**: Production API keys are read strictly through environment variables. Keys are never printed in console logs, UI pages, or exported JSON dossiers.
 - **Client-Side Redaction**: Customer emails, IPv4/IPv6 addresses, authorization tokens, and personal names are scrubbed before payload transmission to AI providers.
 - **Strict Provenance**: Hypotheses are explicitly marked `[HYPOTHESIS]` to prevent false confidence during critical incident triage.
+
+## Real Dataset Issue Intelligence
+
+The React dashboard includes an Issue Intelligence workspace backed by the configurable Hugging Face dataset:
+
+```python
+from datasets import load_dataset
+
+ds = load_dataset("helmo/github-issues")
+```
+
+The implementation lives in [backend/issue_intelligence.py](backend/issue_intelligence.py). It loads the dataset once, excludes pull requests by default, anonymizes titles, bodies, and comments, batches Sentence Transformer embeddings, and persists the result under `outputs/`:
+
+- `issue_intelligence_index.json` stores normalized issue metadata and cluster assignments.
+- `issue_intelligence_embeddings.npz` stores the compressed embedding matrix.
+- The Hugging Face cache stores the downloaded source dataset.
+
+The current dataset contains GitHub issue and pull-request records with titles, bodies, labels, states, timestamps, comments, repository metadata, and source URLs. A default build filters pull requests and indexes the remaining issue records. No request downloads or embeds the full dataset again.
+
+### Preparation and configuration
+
+Start the backend, open the **Issue Intelligence** navigation item, and the UI will call the asynchronous preparation endpoint. The first build performs normalization, batch embedding, and semantic graph clustering. Later requests reuse the persistent index.
+
+Configuration is environment-driven so another compatible dataset can be substituted:
+
+```env
+ISSUE_DATASET_NAME=helmo/github-issues
+ISSUE_DATASET_SPLIT=train
+ISSUE_INCLUDE_PRS=false
+ISSUE_EMBEDDING_MODEL=all-MiniLM-L6-v2
+ISSUE_CLUSTER_THRESHOLD=0.78
+ISSUE_RETRIEVAL_THRESHOLD=0.42
+ISSUE_INTELLIGENCE_INDEX_DIR=outputs
+```
+
+### Intelligence workflow
+
+```text
+Real GitHub issues and discussions
+       -> normalized, anonymized issue records
+       -> persistent embeddings and semantic clusters
+       -> analytics, trends, recurring issue detection
+       -> retrieved historical resolution evidence
+       -> grounded support response or human escalation
+       -> support feedback and KPI tracking
+```
+
+The resolution engine deliberately returns an escalation recommendation when retrieved discussions do not contain resolution evidence. It does not invent troubleshooting steps. When evidence exists, it returns the source issue, discussion-derived resolution summary, step-by-step evidence snippets, similarity scores, and source URLs.
+
+### Issue Intelligence API
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/issue-intelligence/status` | Check whether the persistent index is ready |
+| POST | `/issue-intelligence/prepare` | Start one-time background dataset preparation |
+| GET | `/issue-intelligence/analytics` | Calculate real dataset KPIs and trends |
+| GET | `/issue-intelligence/clusters` | Paginated semantic issue clusters |
+| GET | `/issue-intelligence/issues` | Paginated, filterable source records |
+| GET | `/issue-intelligence/issues/{issue_id}` | Issue details, similar reports, comments, and evidence |
+| POST | `/issue-intelligence/resolve` | Retrieve grounded resolution evidence for a support query |
+| POST | `/issue-intelligence/feedback` | Record resolved/unresolved support outcomes |
+| GET | `/issue-intelligence/export` | Export filtered issues, clusters, or KPI summaries as CSV |
+
+### Data-derived mass-support KPIs
+
+The Issue Intelligence dashboard calculates, rather than hardcodes:
+
+- Total reports
+- Unique semantic issue clusters
+- Similar/duplicate reports beyond cluster representatives
+- Top issue and its percentage of the filtered dataset
+- Potentially auto-resolvable records with resolution evidence
+- Human escalations without sufficient resolution evidence
+- Grounded AI resolution rate
+- Evidence confidence, derived from resolution discussion depth
+- Completeness score from available report text
+- Open/closed state counts
+- High-priority count
+- Category/component distributions
+- Most-discussed issues
+- Monthly issue trends
+
+The dashboard supports issue search, category/state/priority/date filters, cluster and issue detail drawers, evidence links, support resolution feedback, and top-right CSV exports for the filtered issue dataset, clusters, and KPI summary.
+
+## Validation
+
+The project currently has 117 passing Python tests, including tests for dataset normalization, cluster formation, evidence-only resolution behavior, CSV export fields, and a simulated 1,000-identical-report workload collapsing into one cluster. A real Hugging Face smoke test successfully loaded and normalized the dataset; the persistent index is generated on first preparation rather than during every request.
