@@ -3,11 +3,19 @@ BugSenseAI — Enterprise AI Bug Intelligence & Triage Platform
 Master Application Shell & Navigation Router
 """
 
+import sys
+from pathlib import Path
+
+# Ensure project root is on Python path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import streamlit as st
 import os
-from pathlib import Path
 from frontend.styles import apply_theme
 from frontend.api_client import check_backend_status
+
 
 # Page Configuration
 st.set_page_config(

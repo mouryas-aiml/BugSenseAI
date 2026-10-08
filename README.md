@@ -121,19 +121,22 @@ LLM_TIMEOUT_SECONDS=60
 
 ### 3. Launching the Application
 
-Start both the backend service and the frontend dashboard:
+Start the FastAPI backend service and the modern React + TypeScript dashboard:
 
 ```bash
 # Terminal 1 — FastAPI Backend (Port 8000)
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
-# Terminal 2 — Enterprise Streamlit Dashboard (Port 8501)
-streamlit run frontend/app.py
+# Terminal 2 — Modern React + TypeScript Dashboard (Port 5173) [RECOMMENDED]
+cd frontend-react
+npm install
+npm run dev
 ```
 
-Open your browser at `http://localhost:8501`.
+Open your browser at **`http://localhost:5173`**.
 
-> **Resilient Architecture Note:** If the FastAPI backend service is not running on port 8000, the Streamlit frontend automatically switches to **Direct In-Process Engine Mode**, ensuring users are never blocked by connection errors.
+*(Optional Python Streamlit Dashboard available via `streamlit run frontend/app.py` on port 8501).*
+
 
 ---
 
